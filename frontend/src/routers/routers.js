@@ -1,30 +1,24 @@
-// src/router/index.js
-import { createRouter, createWebHistory } from "vue-router";
-import Home from "../views/Home.vue";
-import About from "../views/About.vue";
-import Dashboard from "../views/Dashboard.vue";
+import { createRouter, createWebHistory } from "vue-router"
+import Login from "../views/Login.vue"
+import Dashboard from "../views/Dashboard.vue"
 
 const routes = [
   {
     path: "/",
-    name: "Home",
-    component: Home,
-  },
-  {
-    path: "/about",
-    name: "About",
-    component: About,
+    name: "Login",
+    component: Login,
   },
   {
     path: "/dashboard",
     name: "Dashboard",
     component: Dashboard,
+    props: route => ({ userInfo: route.state?.userInfo })
   },
-];
+]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
-});
+})
 
-export default router;
+export default router

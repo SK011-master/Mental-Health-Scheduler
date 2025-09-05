@@ -1,27 +1,25 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gray-50" v-if="user">
     <!-- Header Section -->
     <header class="bg-white shadow-sm border-b border-gray-200">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <!-- Logo/Brand -->
           <div class="flex items-center">
-            <div class="flex-shrink-0">
-              <h1 class="text-xl font-bold text-gray-900">Mental Health Scheduler</h1>
-            </div>
+            <h1 class="text-xl font-bold text-gray-900">Mental Health Scheduler</h1>
           </div>
           
           <!-- User Profile Section -->
           <div class="flex items-center space-x-4">
             <div class="flex items-center space-x-3">
               <img 
-                :src="userInfo.profilePicture" 
-                :alt="userInfo.name"
+                :src="user?.profilePicture" 
+                :alt="user?.name"
                 class="h-8 w-8 rounded-full object-cover"
               >
               <div class="hidden sm:block">
-                <div class="text-sm font-medium text-gray-900">{{ userInfo.name }}</div>
-                <div class="text-sm text-gray-500">{{ userInfo.email }}</div>
+                <div class="text-sm font-medium text-gray-900">{{ user?.name }}</div>
+                <div class="text-sm text-gray-500">{{ user?.email }}</div>
               </div>
             </div>
             <button 
@@ -40,7 +38,7 @@
       <!-- Welcome Section -->
       <div class="mb-8">
         <h2 class="text-2xl font-bold text-gray-900">
-          Welcome back, {{ userInfo.name.split(' ')[0] }}! 👋
+          Welcome back, {{ user?.name?.split(' ')[0] || 'Guest' }}! 👋
         </h2>
         <p class="mt-2 text-gray-600">
           Take care of your mental well-being by scheduling regular wellness breaks.
@@ -182,11 +180,32 @@
         </div>
       </div>
     </div>
+    
+    <!-- Loading state -->
+    <div v-else class="flex justify-center items-center h-screen">
+      <p class="text-gray-500">Loading user info...</p>
+    </div>
   </div>
+
+  
+
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from "vue-router"
+
+
+const router = useRouter()
+// Props (will receive from parent component)
+const props = defineProps({
+  userInfo: {
+    type: Object,
+    required: false,
+  },
+})
+
+const user = ref(props.userInfo || null)
 
 // Types
 interface UserInfo {
@@ -217,10 +236,6 @@ interface Toast {
   message: string
 }
 
-// Props (will receive from parent component)
-const props = defineProps<{
-  userInfo: UserInfo
-}>()
 
 // Reactive data
 const isScheduling = ref(false)
@@ -266,6 +281,11 @@ const upcomingBreaks = ref<UpcomingBreak[]>([
 const scheduleBreak = async () => {
   if (!breakForm.startTime) {
     showToast('error', 'Please select a start time')
+    return
+  }
+
+  if (!user.value) {
+    showToast('error', 'User not found')
     return
   }
 
@@ -318,8 +338,9 @@ const showToast = (type: 'success' | 'error', message: string) => {
 }
 
 const handleLogout = () => {
-  // TODO: Implement actual logout logic with Descope
-  console.log('Logout clicked')
+  localStorage.removeItem("userInfo")
+  user.value = null
+  router.push("/")
   showToast('success', 'Logged out successfully')
 }
 
@@ -341,5 +362,12 @@ onMounted(() => {
   now.setHours(now.getHours() + 1)
   now.setMinutes(0)
   breakForm.startTime = now.toISOString().slice(0, 16)
+
+  if (!user.value) {
+    const saved = localStorage.getItem("userInfo")
+    if (saved) {
+      user.value = JSON.parse(saved)
+    }
+  }
 })
 </script>
