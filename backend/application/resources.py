@@ -1,11 +1,10 @@
 from flask_restful import Resource
 from .extensions import db
-from .models import User
-import json
 from descope import DescopeClient
 import requests
 from flask import Flask, request, jsonify
 import os
+import datetime
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -74,3 +73,57 @@ class ScheduleBreaks(Resource):
 
         return response.json(), response.status_code
     
+
+
+# this will give the events schedule in calander
+
+class CalendarEvents(Resource):
+    def post(self):
+        try:
+            data = request.get_json()
+            user_id = data.get("user_id")
+            session_jwt = data.get("session_jwt")
+
+            print(session_jwt)
+
+            if not session_jwt:
+                return {"error": "Missing session_jwt"}, 400
+
+            try:
+                token_response = client.mgmt.outbound_application.fetch_token(
+                    "google-calendar",  # replace with your Outbound App ID
+                    user_id,
+                    None,
+                    {"forceRefresh": False}
+                )
+                # print("🔑 Full token response:", token_response)
+                google_token = token_response["token"]["accessToken"]
+            except Exception as e:
+                return {"error": f"Failed to get Google token: {str(e)}"}, 500
+        
+
+            # ✅ Fetch events from Google Calendar API
+            now = datetime.datetime.utcnow().isoformat() + "Z"
+            tomorrow = (datetime.datetime.utcnow() + datetime.timedelta(days=1)).isoformat() + "Z"
+
+            resp = requests.get(
+                "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+                headers={"Authorization": f"Bearer {google_token}"},
+                params={
+                    "timeMin": now,
+                    "timeMax": tomorrow,
+                    "singleEvents": True,
+                    "orderBy": "startTime"
+                }
+            )
+
+            if resp.status_code != 200:
+                return {"error": "Failed to fetch Google events", "details": resp.text}, resp.status_code
+
+            events = resp.json().get("items", [])
+
+            print(events)
+            return {"events": events}, 200
+
+        except Exception as e:
+            return {"error": str(e)}, 500

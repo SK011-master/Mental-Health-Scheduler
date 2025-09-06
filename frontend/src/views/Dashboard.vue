@@ -277,6 +277,28 @@ const upcomingBreaks = ref<UpcomingBreak[]>([
   }
 ])
 
+
+// auto fetching data from calander
+
+async function getCalendarEvents(id, sessionJwt) {
+  try {
+    const res = await fetch("http://localhost:8000/api/calendar/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: id,
+        session_jwt: sessionJwt,
+      }),
+    })
+
+    const data = await res.json();
+    console.log("📅 Google Events:", data);
+  } catch (err) {
+    console.error("❌ Error fetching events:", err);
+  }
+}
+
+
 // Methods
 const scheduleBreak = async () => {
   if (!breakForm.startTime) {
@@ -369,5 +391,8 @@ onMounted(() => {
       user.value = JSON.parse(saved)
     }
   }
+
+  // this is to call autoSchedule
+  getCalendarEvents(user.value.id, user.value.sessionJwt)
 })
 </script>

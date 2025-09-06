@@ -1,16 +1,11 @@
 <script setup>
 import { ref, onMounted } from "vue"
-import { Descope } from "@descope/vue-sdk"
+import { Descope, useSession } from "@descope/vue-sdk"
 import { useRouter } from "vue-router"
 
 const router = useRouter()
-const loading = ref(false)
 
-onMounted(() => {
-  setTimeout(() => {
-    loading.value = false
-  }, 300) // 300ms delay
-})
+const { isLoading } = useSession();
 
 const onSuccess = async (e) => {
   console.log("✅ User authenticated:", e)
@@ -25,35 +20,56 @@ const onSuccess = async (e) => {
   }
 
   try {
+    
+    // Call backend
+    const res = await fetch("http://localhost:8000/api/schedule-breaks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userInfo.id,
+        session_jwt: userInfo.sessionJwt,
+      }),
+    })
 
-    // ✅ Save userInfo in localStorage for persistence
+    const data = await res.json()
+    console.log("📅 Backend response:", data)
+
+    //  Save userInfo in localStorage for persistence
     localStorage.setItem("userInfo", JSON.stringify(userInfo))
 
-    // ✅ Redirect to dashboard (no need to pass state anymore)
+    // Redirect to dashboard (no need to pass state anymore)
     router.push({ name: "Dashboard" })
   } catch (err) {
-    console.error("❌ Backend error:", err)
+    console.error("Backend error:", err)
   }
 }
 
 const onError = (err) => {
-  console.error("❌ Authentication error:", err)
+  console.error("Authentication error:", err)
 }
+
+const errorTransformer = (error) => {
+  const translationMap = {
+    SAMLStartFailed: "Failed to start SAML flow",
+  };
+  return translationMap[error.type] || error.text;
+};
 </script>
 
 <template>
   <div class="p-6 max-w-md mx-auto">
     <h3 class="text-xl font-bold mb-4">Mental Health Scheduler</h3>
 
-    <div v-if="loading" class="text-gray-600">Loading...</div>
+    <!-- Loading state -->
+    <p v-if="isLoading">Loading...</p>
 
-    <!-- Fallback wrapper for Descope -->
-    <div v-else>
-      <Descope
-        flow-id="sign-up-or-in"
-        @success="onSuccess"
-        @error="onError"
-      />
-    </div>
+    <!-- Descope authentication widget -->
+    <Descope
+      v-else
+      flow-id="sign-up-or-in"
+      @error="onError"
+      @success="onSuccess"
+      :error-transformer="errorTransformer"
+    />
   </div>
 </template>

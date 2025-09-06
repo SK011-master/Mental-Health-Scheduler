@@ -3,8 +3,7 @@ import App from './App.vue'
 import router from './routers/routers'
 import './style.css'
 
-import descope from '@descope/vue-sdk'
-import '@descope/web-component' 
+import descope from '@descope/vue-sdk' 
 
 const app = createApp(App)
 

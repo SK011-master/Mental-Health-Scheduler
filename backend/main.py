@@ -27,10 +27,11 @@ def create_app(for_test=False):
 
 app, api = create_app()
 
-from application.resources import DummyApi, ScheduleBreaks
+from application.resources import DummyApi, ScheduleBreaks, CalendarEvents
 
-api.add_resource(DummyApi, '/testingApi')
-api.add_resource(ScheduleBreaks, "/schedule-breaks")
+api.add_resource(DummyApi, '/api/testingApi')
+api.add_resource(ScheduleBreaks, "/api/schedule-breaks")
+api.add_resource(CalendarEvents, "/api/calendar/events")
 
 # Start dev server
 if __name__ == "__main__":
