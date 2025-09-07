@@ -195,7 +195,6 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from "vue-router"
 
-
 const router = useRouter()
 // Props (will receive from parent component)
 const props = defineProps({
@@ -252,33 +251,33 @@ const toast = reactive<Toast>({
   message: ''
 })
 
-// Dummy data for upcoming breaks
-const upcomingBreaks = ref<UpcomingBreak[]>([
-  {
-    id: '1',
-    title: 'Morning Meditation 🧘',
-    startTime: '2025-01-15T09:00:00',
-    duration: 15,
-    calendarLink: 'https://calendar.google.com/calendar/event?eid=dummy1'
-  },
-  {
-    id: '2',
-    title: 'Lunch Break Walk 🚶‍♀️',
-    startTime: '2025-01-15T12:30:00',
-    duration: 30,
-    calendarLink: 'https://calendar.google.com/calendar/event?eid=dummy2'
-  },
-  {
-    id: '3',
-    title: 'Afternoon Breathing Exercise 🌬️',
-    startTime: '2025-01-15T15:15:00',
-    duration: 10,
-    calendarLink: 'https://calendar.google.com/calendar/event?eid=dummy3'
-  }
-])
+// ****************************************************************************** METHODS *******************************************************************************************
 
+// Methods
+// auto fetching data from calander data
+const all_events = ref([]);
 
-// auto fetching data from calander
+// Your final formatted upcoming breaks
+const upcomingBreaks = ref([]);
+
+function convertGoogleEventsToUpcomingBreaks() {
+  upcomingBreaks.value = all_events.value.map(event => {
+    // Extract start & end time
+    const start = new Date(event.start?.dateTime);
+    const end = new Date(event.end?.dateTime);
+
+    // Calculate duration in minutes
+    const duration = Math.round((end - start) / (1000 * 60));
+
+    return {
+      id: event.id || crypto.randomUUID(), // Fallback if id is missing
+      title: event.summary || "Wellness Break 🧘", // Default if summary missing
+      startTime: start.toISOString(), // Keep ISO format for consistency
+      duration: duration,
+      calendarLink: event.htmlLink || "#"
+    };
+  });
+}
 
 async function getCalendarEvents(id, sessionJwt) {
   try {
@@ -292,12 +291,34 @@ async function getCalendarEvents(id, sessionJwt) {
     })
 
     const data = await res.json();
-    console.log("📅 Google Events:", data);
+    all_events.value = data.events || []; 
+    convertGoogleEventsToUpcomingBreaks()
+    console.log("📅 all Google Events:", all_events.value);
   } catch (err) {
     console.error("❌ Error fetching events:", err);
   }
 }
 
+// this api call is to auto schedule events 
+
+async function autoscheduleCalendarEvents() {
+  try {
+    console.log(all_events.value)
+    const res = await fetch("http://localhost:8000/api/auto-schedule/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: user.value.id,
+        events: all_events.value,
+      }),
+    })
+
+    const data = await res.json();
+    console.log("📅 Free Time:", data);
+  } catch (err) {
+    console.error("❌ Error fetching events:", err);
+  }
+}
 
 // Methods
 const scheduleBreak = async () => {
@@ -394,5 +415,6 @@ onMounted(() => {
 
   // this is to call autoSchedule
   getCalendarEvents(user.value.id, user.value.sessionJwt)
+  .then(() => autoscheduleCalendarEvents());
 })
 </script>
