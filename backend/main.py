@@ -14,15 +14,6 @@ def create_app(for_test=False):
     app.config.from_object(Config)
 
     # Enable CORS for frontend (Vue3)
-    CORS(app,
-        resources={r"/*": {"origins": [
-            "http://localhost:5173",
-            "https://incredible-bublanina-3c8136.netlify.app",
-            "https://*.netlify.app"  # allow all Netlify deploy previews
-        ]}},
-        supports_credentials=True,
-        allow_headers="*",
-        methods=["GET", "POST", "OPTIONS"])
     
     api = Api(app)
     # Initialize extensions
