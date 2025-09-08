@@ -346,7 +346,7 @@ async function getCalendarEvents(id, sessionJwt) {
  */
 async function autoscheduleCalendarEvents() {
   try {
-    const res = await fetch(`${API_URL}/auto-schedule/events`, {
+    const res = await fetch(`${API_URL}/api/auto-schedule/events`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
