@@ -8,3 +8,4 @@ PyJWT==2.9.0
 descope
 pytz
 gunicorn
+flask_cors
