@@ -318,7 +318,7 @@ function convertGoogleEventsToUpcomingBreaks() {
  */
 async function getCalendarEvents(id, sessionJwt) {
   try {
-    const res = await fetch("http://localhost:8000/api/calendar/events", {
+    const res = await fetch(`${process.env.VUE_APP_API_BASE_URL}/api/calendar/events`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -343,7 +343,7 @@ async function getCalendarEvents(id, sessionJwt) {
  */
 async function autoscheduleCalendarEvents() {
   try {
-    const res = await fetch("http://localhost:8000/api/auto-schedule/events", {
+    const res = await fetch(`${process.env.VUE_APP_API_BASE_URL}/auto-schedule/events`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -377,7 +377,7 @@ const scheduleBreak = async () => {
   isScheduling.value = true;
 
   try {
-    const response = await fetch("http://localhost:8000/schedule-breaks", {
+    const response = await fetch(`${process.env.VUE_APP_API_BASE_URL}/schedule-breaks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
