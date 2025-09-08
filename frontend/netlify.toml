@@ -1,0 +1,12 @@
+[build]
+  # Command to build your Vue app
+  command = "npm run build"
+  
+  # Folder to deploy (Vite outputs to 'dist' by default)
+  publish = "dist"
+
+# Optional: redirect all routes to index.html for SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

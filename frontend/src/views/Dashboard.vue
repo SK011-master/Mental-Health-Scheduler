@@ -486,7 +486,7 @@ onMounted(() => {
     if (user.value) {
       getCalendarEvents(user.value.id, user.value.sessionJwt);
     }
-  }, 10000);
+  }, 60000);
 
   // Cleanup interval on unmount
   onUnmounted(() => clearInterval(interval));
