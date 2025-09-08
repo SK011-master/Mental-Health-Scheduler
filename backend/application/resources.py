@@ -404,7 +404,7 @@ class AutoSchedule(Resource):
                 return {"message": "Wellness breaks already scheduled for today"}, 200
 
             RULES = {
-                "working_hours": {"start": "09:00", "end": "23:00"},
+                "working_hours": {"start": "09:00", "end": "17:00"},
                 "break_duration": 30,
                 "min_gap": 15,
                 "max_breaks_per_day": 3,
