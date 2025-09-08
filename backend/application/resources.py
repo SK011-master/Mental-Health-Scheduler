@@ -85,6 +85,7 @@ class CalendarEvents(Resource):
             data = request.get_json()
             user_id = data.get("user_id")
             session_jwt = data.get("session_jwt")
+            print("📩 Incoming request:", data)
 
 
             if not session_jwt:
