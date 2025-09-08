@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify
 import os
 import datetime, time
 import pytz
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -147,59 +148,151 @@ def extract_event_info(events):
         })
     return cleaned
 
-# this function is finding free slots
-def find_free_slots(events, rules):
+
+# this is the function it will find the break slots from free slots 
+def schedule_breaks(free_slots, rules):
+    break_duration = datetime.timedelta(minutes=rules["break_duration"])
+    max_breaks = rules["max_breaks_per_day"]
+    min_spacing = datetime.timedelta(hours=2)  # ✅ enforce 2-hour gap
+
     today = datetime.date.today()
-
-    # Detect local timezone (e.g., Asia/Kolkata)
     local_tz = datetime.datetime.now().astimezone().tzinfo
-    now = datetime.datetime.now(local_tz) 
 
-    # Define working hours
     working_start = datetime.datetime.combine(
-        today,
-        datetime.time.fromisoformat(rules["working_hours"]["start"])
+        today, datetime.time.fromisoformat(rules["working_hours"]["start"])
     ).replace(tzinfo=local_tz)
 
     working_end = datetime.datetime.combine(
-        today,
-        datetime.time.fromisoformat(rules["working_hours"]["end"])
+        today, datetime.time.fromisoformat(rules["working_hours"]["end"])
     ).replace(tzinfo=local_tz)
 
-    # If current time is within working hours, shift start
+    scheduled = []
+
+    # divide working hours into segments
+    total_working = (working_end - working_start).total_seconds()
+    segment = total_working / (max_breaks + 1)
+
+    # target times (spaced out evenly)
+    target_times = [
+        working_start + datetime.timedelta(seconds=segment * (i + 1))
+        for i in range(max_breaks)
+    ]
+
+    for target in target_times:
+        best_slot = None
+        best_diff = None
+
+        for slot in free_slots:
+            slot_start = datetime.datetime.fromisoformat(slot["start_iso"])
+            slot_end = datetime.datetime.fromisoformat(slot["end_iso"])
+
+            # check if target fits directly
+            if slot_start <= target <= slot_end - break_duration:
+                diff = abs((slot_start - target).total_seconds())
+                if best_diff is None or diff < best_diff:
+                    best_slot = target
+                    best_diff = diff
+            else:
+                # fallback: align with slot start
+                if slot_start + break_duration <= slot_end:
+                    diff = abs((slot_start - target).total_seconds())
+                    if best_diff is None or diff < best_diff:
+                        best_slot = slot_start
+                        best_diff = diff
+
+        if best_slot:
+            # check spacing rule
+            too_close = any(
+                abs((datetime.datetime.fromisoformat(b["start_iso"]) - best_slot).total_seconds()) < min_spacing.total_seconds()
+                for b in scheduled
+            )
+            if not too_close:
+                scheduled.append({
+                    "start_iso": best_slot.isoformat(),
+                    "end_iso": (best_slot + break_duration).isoformat(),
+                    "start_readable": best_slot.strftime("%I:%M %p"),
+                    "end_readable": (best_slot + break_duration).strftime("%I:%M %p")
+                })
+
+    return scheduled
+
+# this function is finding free slots
+def find_free_slots(events, rules, tz_name="Asia/Kolkata"):
+    tz = ZoneInfo(tz_name)
+
+    # now in the chosen timezone
+    now = datetime.datetime.now(tz)
+    today = now.date()
+
+    # Build working hours in the SAME timezone (explicit)
+    working_start = datetime.datetime.combine(
+        today,
+        datetime.time.fromisoformat(rules["working_hours"]["start"]),
+        tzinfo=tz
+    )
+    working_end = datetime.datetime.combine(
+        today,
+        datetime.time.fromisoformat(rules["working_hours"]["end"]),
+        tzinfo=tz
+    )
+
+    # If current time is inside working hours → shift start to now
     if working_start < now < working_end:
         working_start = now
 
-    # Extract busy times
+    # If current time is past working hours → no free slots
+    if now >= working_end:
+        return []
+
+    # Build busy intervals clipped to working hours
     busy_times = []
     for e in events:
         try:
             start = datetime.datetime.fromisoformat(e["start"])
             end = datetime.datetime.fromisoformat(e["end"])
-            busy_times.append((start, end))
         except Exception as ex:
-            print(f"⚠️ Skipping malformed event: {e}, error: {ex}")
+            print("Skipping malformed event:", e, ex)
             continue
+
+        # Ensure event datetimes are timezone-aware; if not, assume tz
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=tz)
+        else:
+            # convert event into our chosen zone for consistent comparison
+            start = start.astimezone(tz)
+
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=tz)
+        else:
+            end = end.astimezone(tz)
+
+        # clip to working hours and ignore outside intervals
+        if end <= working_start or start >= working_end:
+            continue
+        start = max(start, working_start)
+        end = min(end, working_end)
+
+        busy_times.append((start, end))
 
     busy_times.sort(key=lambda x: x[0])
 
+    # Build free slots from now..working_end excluding busy intervals
     free_slots = []
     last_end = working_start
 
     for start, end in busy_times:
-        if last_end.tzinfo != start.tzinfo:
-            last_end = last_end.astimezone(start.tzinfo)
-
-        gap = (start - last_end).total_seconds() / 60
-        if gap >= rules["break_duration"] + rules["min_gap"]:
+        # last_end and start are same tz (both tz)
+        gap_minutes = (start - last_end).total_seconds() / 60
+        if gap_minutes >= (rules["break_duration"] + rules["min_gap"]):
             free_slots.append((last_end, start))
         last_end = max(last_end, end)
 
-    # Final slot after last meeting
+    # final gap
     if (working_end - last_end).total_seconds() / 60 >= rules["break_duration"]:
         free_slots.append((last_end, working_end))
 
-    formatted_slots = [
+    # Format output (ISO + readable)
+    formatted = [
         {
             "start_iso": s.isoformat(),
             "end_iso": e.isoformat(),
@@ -209,8 +302,90 @@ def find_free_slots(events, rules):
         for s, e in free_slots
     ]
 
-    return formatted_slots
+    print(f"EXACT FREE SLOTS: ******************** {formatted} **************************")
 
+    return schedule_breaks(formatted, rules)
+
+
+# this is the function which will automatically add breaks in calander, after getting free time
+
+def insert_breaks_to_calendar(breaks, user_id, session_jwt):
+    """
+    Insert scheduled breaks into the user's Google Calendar using Descope Outbound App.
+    Removes duplicates before inserting + skips breaks that already exist in calendar.
+    """
+
+    # Deduplicate locally first
+    seen = set()
+    unique_breaks = []
+    for br in breaks:
+        key = (br["start_iso"], br["end_iso"])
+        if key not in seen:
+            seen.add(key)
+            unique_breaks.append(br)
+
+    print(f"unique_breaks: {unique_breaks}")
+
+    # 1. Validate session
+    try:
+        client.validate_session(session_jwt)
+    except Exception as e:
+        return {"error": "Invalid session", "details": str(e)}
+
+    # 2. Fetch Google OAuth token
+    try:
+        token_response = client.mgmt.outbound_application.fetch_token(
+            "google-calendar",  # your outbound app ID
+            user_id,
+            None,
+            {"forceRefresh": False}
+        )
+        google_token = token_response["token"]["accessToken"]
+    except Exception as e:
+        return {"error": f"Failed to get Google token: {str(e)}"}
+
+    headers = {"Authorization": f"Bearer {google_token}"}
+
+    # 3. Fetch existing events today to avoid duplicates
+    today = datetime.date.today().isoformat()
+    events_url = (
+        f"https://www.googleapis.com/calendar/v3/calendars/primary/events?"
+        f"timeMin={today}T00:00:00Z&timeMax={today}T23:59:59Z"
+    )
+    existing_events = requests.get(events_url, headers=headers).json().get("items", [])
+    existing_times = {
+        (e["start"].get("dateTime"), e["end"].get("dateTime"))
+        for e in existing_events
+        if "start" in e and "end" in e
+    }
+    print(f"existing_times: {existing_times}")
+
+    created_events = []
+
+    # 4. Insert each break only if not already present
+    for br in unique_breaks:
+        print(br)
+        if (br["start_iso"], br["end_iso"]) in existing_times:
+            continue  # skip duplicate in Google Calendar
+
+        event = {
+            "summary": "Wellness Break 🧘",
+            "start": {"dateTime": br["start_iso"], "timeZone": "Asia/Kolkata"},
+            "end": {"dateTime": br["end_iso"], "timeZone": "Asia/Kolkata"},
+        }
+
+        try:
+            response = requests.post(
+                "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+                headers=headers,
+                json=event
+            )
+            response.raise_for_status()
+            created_events.append(response.json())
+        except Exception as e:
+            created_events.append({"error": str(e), "event": event})
+
+    return {"created_breaks": created_events}
 
 # this is main autoschedular class
 class AutoSchedule(Resource):
@@ -219,25 +394,29 @@ class AutoSchedule(Resource):
             data = request.get_json()
             user_id = data.get("user_id")
             events = data.get("events")
+            session_jwt = data.get("session_jwt")
 
             formated_events = extract_event_info(events)
+            print(f"FORMATED EVENTS : ************** {formated_events} ******************************")
+
+            # ✅ Check if breaks already exist
+            if any(e.get("title") == "Wellness Break 🧘" for e in formated_events):
+                return {"message": "Wellness breaks already scheduled for today"}, 200
 
             RULES = {
-                "working_hours": {"start": "09:00", "end": "20:00"},
+                "working_hours": {"start": "09:00", "end": "23:00"},
                 "break_duration": 30,
                 "min_gap": 15,
                 "max_breaks_per_day": 3,
             }
 
             free_slots = find_free_slots(formated_events, RULES)
+            print(f"30 min in 3 interval FREE SLOTS : ************** {free_slots} ******************************")
 
-            # Convert datetime objects to strings for JSON
-            formatted_slots = [
-                {"start": s["start_iso"], "end": s["end_iso"]}
-                for s in free_slots
-            ]
+            add_brakes = insert_breaks_to_calendar(free_slots, user_id, session_jwt)
+            print(f"ADD_BRAKES : ************** {add_brakes} ******************************")
 
-            return {"free_slots": formatted_slots}, 200
+            return {"free_slots": add_brakes}, 200
 
         except Exception as e:
             return {"error": str(e)}, 500

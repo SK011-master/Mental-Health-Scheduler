@@ -22,17 +22,17 @@ const onSuccess = async (e) => {
   try {
     
     // Call backend
-    const res = await fetch("http://localhost:8000/api/schedule-breaks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: userInfo.id,
-        session_jwt: userInfo.sessionJwt,
-      }),
-    })
+    // const res = await fetch("http://localhost:8000/api/schedule-breaks", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify({
+    //     user_id: userInfo.id,
+    //     session_jwt: userInfo.sessionJwt,
+    //   }),
+    // })
 
-    const data = await res.json()
-    console.log("📅 Backend response:", data)
+    // const data = await res.json()
+    // console.log("📅 Backend response:", data)
 
     //  Save userInfo in localStorage for persistence
     localStorage.setItem("userInfo", JSON.stringify(userInfo))
