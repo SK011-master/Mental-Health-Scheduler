@@ -34,6 +34,11 @@ api.add_resource(ScheduleBreaks, "/api/schedule-breaks")
 api.add_resource(CalendarEvents, "/api/calendar/events")
 api.add_resource(AutoSchedule, "/api/auto-schedule/events")
 
+# ✅ Add a simple root route for Render
+@app.route("/", methods=["GET"])
+def home():
+    return {"message": "Backend is running 🚀"}
+
 # Start dev server
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
