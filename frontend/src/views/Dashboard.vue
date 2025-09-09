@@ -320,11 +320,11 @@ const wellness = ref([]); // Stores only wellness-related events
  * Convert Google Calendar API events into UpcomingBreak[] format
  */
 function convertGoogleEventsToUpcomingBreaks() {
-  if (!Array.isArray(all_events.value)) return; 
+  if (!Array.isArray(all_events.value)) return; // Safety check
 
   //  Convert all Google events into upcomingEvents
   upcomingEvents.value = all_events.value
-    .filter(event => event?.start?.dateTime) 
+    .filter(event => event?.start?.dateTime) // Only valid events
     .map(event => {
       const start = new Date(event.start.dateTime);
       const end = new Date(event.end.dateTime);
@@ -338,13 +338,14 @@ function convertGoogleEventsToUpcomingBreaks() {
         calendarLink: event.htmlLink || "#",
       };
     })
-    .filter(event => new Date(event.startTime) >= new Date()) 
+    .filter(event => new Date(event.startTime) >= new Date()) // Only future events
     .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-  // Filter wellness events separately
-  wellness.value = upcomingEvents.value.filter(event =>
-    event.title.toLowerCase().includes("wellness break")
-  );
+  // Filter wellness & mindful breaks
+  wellness.value = upcomingEvents.value.filter(event => {
+    const lowerTitle = event.title.toLowerCase();
+    return lowerTitle.includes("wellness break") || lowerTitle.includes("mindful 10-min break");
+  });
 }
 
 /**

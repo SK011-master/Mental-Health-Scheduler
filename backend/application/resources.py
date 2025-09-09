@@ -409,6 +409,98 @@ def insert_breaks_to_calendar(breaks, user_id, session_jwt):
 
     return {"created_breaks": created_events}
 
+
+# ******************************************************************************************************************************************************************************************************************
+# ----------------------------------------------------------------------------------------------------- This feature is mainly for students -------------------------------------------------------------------------
+# --------------------------------------------------------------------------------- Auto Scheduling time brakes inside study time ----------------------------------------------------------------------------------- 
+# ******************************************************************************************************************************************************************************************************************
+
+def schedule_break_event(user_id, session_jwt, title, start_time, duration=10):
+    """Wrapper that calls Google Calendar API like ScheduleBreaks class"""
+    try:
+        client.validate_session(session_jwt)
+
+        token_response = client.mgmt.outbound_application.fetch_token(
+            "google-calendar",  # outbound app id
+            user_id,
+            None,
+            {"forceRefresh": False}
+        )
+        google_token = token_response["token"]["accessToken"]
+
+        start = parser.isoparse(start_time)
+        if start.tzinfo is None:
+            ist = pytz.timezone("Asia/Kolkata")
+            start = ist.localize(start)
+        end = start + timedelta(minutes=duration)
+
+        event = {
+            "summary": title,
+            "start": {"dateTime": start.isoformat()},
+            "end": {"dateTime": end.isoformat()},
+        }
+
+        headers = {"Authorization": f"Bearer {google_token}"}
+        response = requests.post(
+            "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+            headers=headers,
+            json=event
+        )
+
+        if response.status_code not in [200, 201]:
+            return {"error": response.text, "status": response.status_code}
+        return response.json()
+
+    except Exception as e:
+        return {"error": str(e)}
+    
+
+
+def find_micro_breaks(events, user_id, session_jwt):
+    """
+    Insert 10-min wellness breaks into long stretches of study time.
+    Rule: 
+      - If continuous study block >= 1 hr → insert 1 break in the middle.
+      - For every additional hour, add another break spaced out.
+    """
+    ist = pytz.timezone("Asia/Kolkata")
+    breaks_to_add = []
+
+    for e in events:
+        print(e)
+        start = parser.isoparse(e["start"])
+        end = parser.isoparse(e["end"])
+
+        # Normalize to IST if no tz info
+        if start.tzinfo is None:
+            start = ist.localize(start)
+        if end.tzinfo is None:
+            end = ist.localize(end)
+
+        duration_minutes = int((end - start).total_seconds() / 60)
+
+        if duration_minutes >= 60:
+            # number of 10-min breaks = hours in session
+            num_breaks = duration_minutes // 60  
+
+            gap = (end - start) / (num_breaks + 1)  # evenly distribute breaks
+
+            for i in range(1, num_breaks + 1):
+                break_start = start + gap * i
+                breaks_to_add.append({
+                    "title": "Mindful 10-min Break 🧘",
+                    "start_time": break_start.isoformat(),
+                    "duration": 10,
+                })
+
+    # Now actually schedule them in Google Calendar
+    results = []
+    for b in breaks_to_add:
+        result = schedule_break_event(user_id, session_jwt, b["title"], b["start_time"], b["duration"])
+        results.append(result)
+
+    return results
+
 # this is main autoschedular class
 class AutoSchedule(Resource):
     def post(self):
@@ -420,7 +512,7 @@ class AutoSchedule(Resource):
 
             formated_events = extract_event_info(events)
 
-            # ✅ Check if breaks already exist
+            #  Check if breaks already exist
             if any(e.get("title") == "Wellness Break 🧘" for e in formated_events):
                 return {"message": "Wellness breaks already scheduled for today"}, 200
 
@@ -433,7 +525,11 @@ class AutoSchedule(Resource):
 
             free_slots = find_free_slots(formated_events, RULES)
 
+            # this will find the free time and schedule the wellness brakes btw the working hours you can make working hours to (9 to 5 above in RULES)
             add_brakes = insert_breaks_to_calendar(free_slots, user_id, session_jwt)
+
+            # Add 10-min micro breaks between long sessions
+            find_micro_breaks(formated_events, user_id, session_jwt)
 
             return {"free_slots": add_brakes}, 200
 
