@@ -34,7 +34,6 @@
     </header>
 
     <!-- Main Content -->
-    <!-- Main Content -->
     <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <!-- Welcome Section -->
       <div class="mb-8">
@@ -49,6 +48,15 @@
       <div class="card bg-gradient-to-r from-green-50 to-blue-100 p-4 rounded-xl shadow mb-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-2">💡 Mindfulness Tip for Students</h3>
         <p class="text-gray-700 italic">{{ currentTip }}</p>
+      </div>
+
+      <!-- Warning Banner -->
+      <div
+        v-if="all_events.length === 0"
+        class="mb-6 p-4 bg-red-100 border border-red-300 text-red-700 rounded-lg shadow-sm"
+      >
+        ⚠️ No events found in your calendar.
+        <span class="font-semibold">Please add events to schedule breaks automatically</span> to get started.
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -358,7 +366,7 @@ async function getCalendarEvents(id, sessionJwt) {
 
     convertGoogleEventsToUpcomingBreaks();
 
-    console.log("📅 All Google Events:", all_events.value);
+    // console.log("📅 All Google Events:", all_events.value);
   } catch (err) {
     console.error("Error fetching events:", err);
   }

@@ -1,14 +1,15 @@
 <script setup>
 import { ref, onMounted } from "vue"
-import { Descope, useSession } from "@descope/vue-sdk"
+import { useSession } from "@descope/vue-sdk"
 import { useRouter } from "vue-router"
 
 const router = useRouter()
 
 const { isLoading } = useSession();
 
+const projectId = import.meta.env.VITE_DESCOPE_PROJECT_ID
+
 const onSuccess = async (e) => {
-  console.log("User authenticated:", e)
 
   const userInfo = {
     id: e.detail.user.userId,
@@ -21,7 +22,6 @@ const onSuccess = async (e) => {
 
   try {
 
-    //  Save userInfo in localStorage for persistence
     localStorage.setItem("userInfo", JSON.stringify(userInfo))
 
     // Redirect to dashboard (no need to pass state anymore)
@@ -47,17 +47,18 @@ const errorTransformer = (error) => {
 <template>
   <div class="p-6 max-w-md mx-auto">
     <h3 class="text-xl font-bold mb-4">Mental Health Scheduler</h3>
+    <p>Some Time it take time to show up aprox 1min please do a reaload if not showing up</p>
 
     <!-- Loading state -->
     <p v-if="isLoading">Loading...</p>
 
     <!-- Descope authentication widget -->
-    <Descope
+    <descope-wc
       v-else
+      :project-id="projectId"
       flow-id="sign-up-or-in"
-      @error="onError"
       @success="onSuccess"
-      :error-transformer="errorTransformer"
-    />
+      @error="onError"
+    ></descope-wc>
   </div>
 </template>

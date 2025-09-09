@@ -425,10 +425,10 @@ class AutoSchedule(Resource):
                 return {"message": "Wellness breaks already scheduled for today"}, 200
 
             RULES = {
-                "working_hours": {"start": "09:00", "end": "17:00"},
+                "working_hours": {"start": "01:00", "end": "23:59"},
                 "break_duration": 30,
                 "min_gap": 15,
-                "max_breaks_per_day": 3,
+                "max_breaks_per_day": 6,
             }
 
             free_slots = find_free_slots(formated_events, RULES)

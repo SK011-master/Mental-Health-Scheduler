@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@descope/vue-sdk": "^2.11.1",
+    "@descope/web-component": "^3.47.2",
     "@tailwindcss/vite": "^4.1.12",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1"
