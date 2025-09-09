@@ -513,8 +513,10 @@ class AutoSchedule(Resource):
             formated_events = extract_event_info(events)
 
             #  Check if breaks already exist
-            if any(e.get("title") == "Wellness Break 🧘" for e in formated_events):
-                return {"message": "Wellness breaks already scheduled for today"}, 200
+            if any(e.get("title") in ["Wellness Break 🧘", "Mindful 10-min Break 🧘"]
+                    for e in formated_events
+                ):
+                    return {"message": "Breaks already scheduled for today"}, 200
 
             RULES = {
                 "working_hours": {"start": "01:00", "end": "23:59"},

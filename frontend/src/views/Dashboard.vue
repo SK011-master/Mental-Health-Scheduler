@@ -556,14 +556,14 @@ onMounted(() => {
       getCalendarEvents(user.value.id, user.value.sessionJwt);
     }
 
-    // Switch to 30 sec interval
+    // Switch to 15 sec interval
     interval = setInterval(() => {
       if (user.value) {
         getCalendarEvents(user.value.id, user.value.sessionJwt).then(() => {
           autoscheduleCalendarEvents();
         });
       }
-    }, 30000);
+    }, 15000);
 
   }, 10000);
 
