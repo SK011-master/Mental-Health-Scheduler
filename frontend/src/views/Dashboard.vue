@@ -46,6 +46,11 @@
         </p>
       </div>
 
+      <div class="card bg-gradient-to-r from-green-50 to-blue-100 p-4 rounded-xl shadow mb-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">💡 Mindfulness Tip for Students</h3>
+        <p class="text-gray-700 italic">{{ currentTip }}</p>
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Left Section -->
         <div class="lg:col-span-2 flex flex-col gap-6">
@@ -276,9 +281,28 @@ const breakForm = reactive({
 
 const toast = reactive({
   show: false,
-  type: "success", // success | error
+  type: "success", 
   message: "",
 });
+
+// this data is for tips 
+const mindfulnessTips = [
+  "📚 Close your laptop for 2 minutes and just breathe.",
+  "☕ Grab some water or tea – hydration fuels focus.",
+  "✍️ Write down one thing you learned today (small wins count!).",
+  "🖼️ Look away from the screen and focus on something far for 20 seconds.",
+  "🎶 Play your favorite song for a quick mood boost.",
+  "🪑 Sit up straight and roll your shoulders back.",
+  "👀 Do the 20-20-20 rule: Every 20 mins, look 20 feet away for 20 seconds.",
+  "🍎 Eat a healthy snack – your brain needs fuel.",
+  "💤 Power nap (10–15 mins) if you’re exhausted.",
+  "🧘 Try box breathing: Inhale 4s → Hold 4s → Exhale 4s → Hold 4s.",
+  "📖 Read a page from something non-academic for relaxation.",
+  "🙌 Stretch your arms and shake your hands loose.",
+  "🚶 Walk around your room for a minute – movement resets your brain.",
+  "💡 Write a mini to-do list for clarity.",
+  "🌞 Step near a window and soak in sunlight."
+];
 
 const all_events = ref([]);
 const upcomingEvents = ref([]);
@@ -288,11 +312,11 @@ const wellness = ref([]); // Stores only wellness-related events
  * Convert Google Calendar API events into UpcomingBreak[] format
  */
 function convertGoogleEventsToUpcomingBreaks() {
-  if (!Array.isArray(all_events.value)) return; // Safety check
+  if (!Array.isArray(all_events.value)) return; 
 
   //  Convert all Google events into upcomingEvents
   upcomingEvents.value = all_events.value
-    .filter(event => event?.start?.dateTime) // Only valid events
+    .filter(event => event?.start?.dateTime) 
     .map(event => {
       const start = new Date(event.start.dateTime);
       const end = new Date(event.end.dateTime);
@@ -306,10 +330,10 @@ function convertGoogleEventsToUpcomingBreaks() {
         calendarLink: event.htmlLink || "#",
       };
     })
-    .filter(event => new Date(event.startTime) >= new Date()) // Only future events
+    .filter(event => new Date(event.startTime) >= new Date()) 
     .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-  // ✅ Filter wellness events separately
+  // Filter wellness events separately
   wellness.value = upcomingEvents.value.filter(event =>
     event.title.toLowerCase().includes("wellness break")
   );
@@ -392,11 +416,11 @@ const scheduleBreak = async () => {
     return; // Stop here
   }
 
-  // ✅ Continue scheduling
+  // Continue scheduling
   isScheduling.value = true;
 
   try {
-    const response = await fetch(`${API_URL}/schedule-breaks`, {
+    const response = await fetch(`${API_URL}/api/schedule-breaks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -473,6 +497,13 @@ const formatDateTime = (dateTime) => {
   });
 };
 
+// this is the function for tips logic
+const currentTip = ref("");
+
+function showRandomTip() {
+  const randomIndex = Math.floor(Math.random() * mindfulnessTips.length);
+  currentTip.value = mindfulnessTips[randomIndex];
+}
 
 // this is the watch to update Upcoming events as backend adds them to calender
 
@@ -484,15 +515,19 @@ watch(
   { deep: true, immediate: true }
 );
 
-/**
- * On page load → set default start time + fetch events + auto-schedule
- */
 onMounted(() => {
+
+  // this is for tips
+  showRandomTip();
+  setInterval(showRandomTip, 10000); // every 3 mins
+
+  // this is to make input date-time as iso default
   const now = new Date();
   now.setHours(now.getHours() + 1);
   now.setMinutes(0);
   breakForm.startTime = now.toISOString().slice(0, 16);
 
+  // this is to retrive info from local storage
   if (!user.value) {
     const saved = localStorage.getItem("userInfo");
     if (saved) {
@@ -500,19 +535,32 @@ onMounted(() => {
     }
   }
 
-  // Fetch Google Calendar events + Auto-schedule free slots
   getCalendarEvents(user.value.id, user.value.sessionJwt).then(() => {
     autoscheduleCalendarEvents();
   });
 
-  // 🔄 Poll every 60 seconds (or whatever interval you want)
-  const interval = setInterval(() => {
+  let interval;
+
+  // First call after 10 sec
+  const timeout = setTimeout(() => {
     if (user.value) {
       getCalendarEvents(user.value.id, user.value.sessionJwt);
     }
-  }, 60000);
 
-  // Cleanup interval on unmount
-  onUnmounted(() => clearInterval(interval));
+    // Switch to 30 sec interval
+    interval = setInterval(() => {
+      if (user.value) {
+        getCalendarEvents(user.value.id, user.value.sessionJwt).then(() => {
+          autoscheduleCalendarEvents();
+        });
+      }
+    }, 30000);
+
+  }, 10000);
+
+  onUnmounted(() => {
+    clearTimeout(timeout);
+    if (interval) clearInterval(interval);
+  });
 });
 </script>

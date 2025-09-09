@@ -8,7 +8,7 @@ const router = useRouter()
 const { isLoading } = useSession();
 
 const onSuccess = async (e) => {
-  console.log("✅ User authenticated:", e)
+  console.log("User authenticated:", e)
 
   const userInfo = {
     id: e.detail.user.userId,
@@ -20,25 +20,13 @@ const onSuccess = async (e) => {
   }
 
   try {
-    
-    // Call backend
-    // const res = await fetch("http://localhost:8000/api/schedule-breaks", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({
-    //     user_id: userInfo.id,
-    //     session_jwt: userInfo.sessionJwt,
-    //   }),
-    // })
-
-    // const data = await res.json()
-    // console.log("📅 Backend response:", data)
 
     //  Save userInfo in localStorage for persistence
     localStorage.setItem("userInfo", JSON.stringify(userInfo))
 
     // Redirect to dashboard (no need to pass state anymore)
     router.push({ name: "Dashboard" })
+    
   } catch (err) {
     console.error("Backend error:", err)
   }

@@ -14,14 +14,14 @@ def create_app(for_test=False):
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # ✅ Enable CORS with regex for Netlify previews
+    # Enable CORS with regex for Netlify previews
     CORS(
         app,
         resources={r"/*": {
             "origins": [
-                re.compile(r"^https:\/\/.*\.netlify\.app$"),   # matches ALL netlify.app subdomains
-                "https://mental-health-scheduler.netlify.app", # your final Netlify site
-                "http://localhost:5173"                        # local Vue dev
+                re.compile(r"^https:\/\/.*\.netlify\.app$"),   
+                "https://mental-health-scheduler.netlify.app", 
+                "http://localhost:5173"                        
             ],
             "methods": ["GET", "POST", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
@@ -51,7 +51,7 @@ api.add_resource(ScheduleBreaks, "/api/schedule-breaks")
 api.add_resource(CalendarEvents, "/api/calendar/events")
 api.add_resource(AutoSchedule, "/api/auto-schedule/events")
 
-# ✅ Simple health route for Render
+# Simple health route for Render
 @app.route("/", methods=["GET"])
 def home():
     return {"message": "Backend is running 🚀"}
