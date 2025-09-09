@@ -34,6 +34,7 @@
     </header>
 
     <!-- Main Content -->
+    <!-- Main Content -->
     <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <!-- Welcome Section -->
       <div class="mb-8">
@@ -43,20 +44,6 @@
         <p class="mt-2 text-gray-600">
           Take care of your mental well-being by scheduling regular wellness breaks.
         </p>
-      </div>
-
-      <div class="card bg-gradient-to-r from-green-50 to-blue-100 p-4 rounded-xl shadow mb-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-2">💡 Mindfulness Tip for Students</h3>
-        <p class="text-gray-700 italic">{{ currentTip }}</p>
-      </div>
-
-      <!-- Warning Banner -->
-      <div
-        v-if="all_events.length === 0"
-        class="mb-6 p-4 bg-red-100 border border-red-300 text-red-700 rounded-lg shadow-sm"
-      >
-        ⚠️ No events found in your calendar.
-        <span class="font-semibold">Please add events to schedule breaks automatically</span> to get started.
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -251,7 +238,6 @@
     
     <!-- Loading state -->
     <!-- <div v-else class="flex justify-center items-center h-screen">
-      U291bXlhIEt1c2h3YWhhfDEyLzA3LzIwMDN8Mjg1
       <p class="text-gray-500">Loading user info...</p>
     </div> -->
   </div>
@@ -263,9 +249,6 @@
 <script setup>
 import { ref, reactive, onMounted, watch, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
-
-
-const API_URL = import.meta.env.VITE_API_URL;
 
 const router = useRouter();
 
@@ -290,28 +273,9 @@ const breakForm = reactive({
 
 const toast = reactive({
   show: false,
-  type: "success", 
+  type: "success", // success | error
   message: "",
 });
-
-// this data is for tips 
-const mindfulnessTips = [
-  "📚 Close your laptop for 2 minutes and just breathe.",
-  "☕ Grab some water or tea – hydration fuels focus.",
-  "✍️ Write down one thing you learned today (small wins count!).",
-  "🖼️ Look away from the screen and focus on something far for 20 seconds.",
-  "🎶 Play your favorite song for a quick mood boost.",
-  "🪑 Sit up straight and roll your shoulders back.",
-  "👀 Do the 20-20-20 rule: Every 20 mins, look 20 feet away for 20 seconds.",
-  "🍎 Eat a healthy snack – your brain needs fuel.",
-  "💤 Power nap (10–15 mins) if you’re exhausted.",
-  "🧘 Try box breathing: Inhale 4s → Hold 4s → Exhale 4s → Hold 4s.",
-  "📖 Read a page from something non-academic for relaxation.",
-  "🙌 Stretch your arms and shake your hands loose.",
-  "🚶 Walk around your room for a minute – movement resets your brain.",
-  "💡 Write a mini to-do list for clarity.",
-  "🌞 Step near a window and soak in sunlight."
-];
 
 const all_events = ref([]);
 const upcomingEvents = ref([]);
@@ -342,7 +306,7 @@ function convertGoogleEventsToUpcomingBreaks() {
     .filter(event => new Date(event.startTime) >= new Date()) // Only future events
     .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-  // Filter wellness & mindful breaks
+  //  Filter wellness & mindful breaks
   wellness.value = upcomingEvents.value.filter(event => {
     const lowerTitle = event.title.toLowerCase();
     return lowerTitle.includes("wellness break") || lowerTitle.includes("mindful 10-min break");
@@ -354,7 +318,7 @@ function convertGoogleEventsToUpcomingBreaks() {
  */
 async function getCalendarEvents(id, sessionJwt) {
   try {
-    const res = await fetch(`${API_URL}/api/calendar/events`, {
+    const res = await fetch("http://localhost:8000/api/calendar/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -379,7 +343,7 @@ async function getCalendarEvents(id, sessionJwt) {
  */
 async function autoscheduleCalendarEvents() {
   try {
-    const res = await fetch(`${API_URL}/api/auto-schedule/events`, {
+    const res = await fetch("http://localhost:8000/api/auto-schedule/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -410,7 +374,7 @@ const scheduleBreak = async () => {
     return;
   }
 
-  // Check if selected start time conflicts with any existing event
+  //  Check if selected start time conflicts with any existing event
   const selectedStart = new Date(breakForm.startTime);
 
   const conflict = all_events.value.some(event => {
@@ -426,11 +390,12 @@ const scheduleBreak = async () => {
     return; // Stop here
   }
 
-  // Continue scheduling
+  //  Continue scheduling
+  // U291bXlhIEt1c2h3YWhhfDEyLzA3LzIwMDN8Mjg1
   isScheduling.value = true;
 
   try {
-    const response = await fetch(`${API_URL}/api/schedule-breaks`, {
+    const response = await fetch("http://localhost:8000/api/schedule-breaks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -468,6 +433,7 @@ const scheduleBreak = async () => {
     isScheduling.value = false;
   }
 };
+
 
 /**
  * Show toast notification
@@ -507,13 +473,6 @@ const formatDateTime = (dateTime) => {
   });
 };
 
-// this is the function for tips logic
-const currentTip = ref("");
-
-function showRandomTip() {
-  const randomIndex = Math.floor(Math.random() * mindfulnessTips.length);
-  currentTip.value = mindfulnessTips[randomIndex];
-}
 
 // this is the watch to update Upcoming events as backend adds them to calender
 
@@ -525,19 +484,15 @@ watch(
   { deep: true, immediate: true }
 );
 
+/**
+ * On page load → set default start time + fetch events + auto-schedule
+ */
 onMounted(() => {
-
-  // this is for tips
-  showRandomTip();
-  setInterval(showRandomTip, 10000); // every 3 mins
-
-  // this is to make input date-time as iso default
   const now = new Date();
   now.setHours(now.getHours() + 1);
   now.setMinutes(0);
   breakForm.startTime = now.toISOString().slice(0, 16);
 
-  // this is to retrive info from local storage
   if (!user.value) {
     const saved = localStorage.getItem("userInfo");
     if (saved) {
@@ -560,9 +515,7 @@ onMounted(() => {
     // Switch to 15 sec interval
     interval = setInterval(() => {
       if (user.value) {
-        getCalendarEvents(user.value.id, user.value.sessionJwt).then(() => {
-          autoscheduleCalendarEvents();
-        });
+        getCalendarEvents(user.value.id, user.value.sessionJwt);
       }
     }, 15000);
 

@@ -5,10 +5,10 @@ import requests
 from flask import Flask, request, jsonify
 import os
 import datetime, time
-from datetime import datetime, timedelta
-import pytz
-from zoneinfo import ZoneInfo
 from dateutil import parser
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+import pytz
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -83,7 +83,6 @@ class ScheduleBreaks(Resource):
                 "end": {"dateTime": end.isoformat()},
             }
 
-            print(event)
         except Exception as e:
             return {"error": f"Invalid date format: {str(e)}"}, 400
 
@@ -131,7 +130,7 @@ class CalendarEvents(Resource):
                 return {"error": f"Failed to get Google token: {str(e)}"}, 500
         
 
-            # Fetch events from Google Calendar API
+            # ✅ Fetch events from Google Calendar API
             now = datetime.datetime.utcnow().isoformat() + "Z"
             tomorrow = (datetime.datetime.utcnow() + datetime.timedelta(days=1)).isoformat() + "Z"
 
@@ -181,7 +180,7 @@ def extract_event_info(events):
 def schedule_breaks(free_slots, rules):
     break_duration = datetime.timedelta(minutes=rules["break_duration"])
     max_breaks = rules["max_breaks_per_day"]
-    min_spacing = datetime.timedelta(hours=2)  
+    min_spacing = datetime.timedelta(hours=2)  # ✅ enforce 2-hour gap
 
     today = datetime.date.today()
     local_tz = datetime.datetime.now().astimezone().tzinfo
@@ -334,7 +333,6 @@ def find_free_slots(events, rules, tz_name="Asia/Kolkata"):
 
 
 # this is the function which will automatically add breaks in calander, after getting free time
-# U291bXlhIEt1c2h3YWhhfDEyLzA3LzIwMDN8Mjg1
 
 def insert_breaks_to_calendar(breaks, user_id, session_jwt):
     """
@@ -350,6 +348,7 @@ def insert_breaks_to_calendar(breaks, user_id, session_jwt):
         if key not in seen:
             seen.add(key)
             unique_breaks.append(br)
+
 
     # 1. Validate session
     try:
@@ -410,7 +409,8 @@ def insert_breaks_to_calendar(breaks, user_id, session_jwt):
 
     return {"created_breaks": created_events}
 
-
+# ()
+# U291bXlhIEt1c2h3YWhhfDEyLzA3LzIwMDN8Mjg1
 # ******************************************************************************************************************************************************************************************************************
 # ----------------------------------------------------------------------------------------------------- This feature is mainly for students -------------------------------------------------------------------------
 # --------------------------------------------------------------------------------- Auto Scheduling time brakes inside study time ----------------------------------------------------------------------------------- 
@@ -468,7 +468,6 @@ def find_micro_breaks(events, user_id, session_jwt):
     breaks_to_add = []
 
     for e in events:
-        print(e)
         start = parser.isoparse(e["start"])
         end = parser.isoparse(e["end"])
 
@@ -502,6 +501,8 @@ def find_micro_breaks(events, user_id, session_jwt):
 
     return results
 
+
+
 # this is main autoschedular class
 class AutoSchedule(Resource):
     def post(self):
@@ -513,7 +514,7 @@ class AutoSchedule(Resource):
 
             formated_events = extract_event_info(events)
 
-            #  Check if breaks already exist
+            # Check if breaks already exist
             if any(e.get("title") in ["Wellness Break 🧘", "Mindful 10-min Break 🧘"]
                     for e in formated_events
                 ):
@@ -528,7 +529,6 @@ class AutoSchedule(Resource):
 
             free_slots = find_free_slots(formated_events, RULES)
 
-            # this will find the free time and schedule the wellness brakes btw the working hours you can make working hours to (9 to 5 above in RULES)
             add_brakes = insert_breaks_to_calendar(free_slots, user_id, session_jwt)
 
             # Add 10-min micro breaks between long sessions
