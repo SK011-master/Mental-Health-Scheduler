@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [vue({
     template: {
       compilerOptions: {
-        isCustomElement: tag => tag === 'descope-wc'  // 👈 allow Descope web component
+        isCustomElement: tag => tag.startsWith('descope-')  // 👈 allow Descope web component
       }
     }
   })]

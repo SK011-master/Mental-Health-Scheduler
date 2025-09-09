@@ -5,8 +5,10 @@ import requests
 from flask import Flask, request, jsonify
 import os
 import datetime, time
+from datetime import datetime, timedelta
 import pytz
 from zoneinfo import ZoneInfo
+from dateutil import parser
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -37,6 +39,10 @@ class ScheduleBreaks(Resource):
         data = request.get_json()
         user_id = data.get("user_id")
         session_jwt = data.get("session_jwt")
+        title = data.get("title", "Wellness Break 🧘")   
+        start_time = data.get("start_time")  
+        duration = data.get("duration", 15) 
+
 
         if not user_id or not session_jwt:
             return {"error": "Missing user_id or session_jwt"}, 400
@@ -47,31 +53,53 @@ class ScheduleBreaks(Resource):
         except Exception as e:
             return {"error": "Invalid session", "details": str(e)}, 401
 
-        # 2. Fetch Google OAuth token via mgmt.outbound_application
         try:
             token_response = client.mgmt.outbound_application.fetch_token(
-                "google-calendar",  # replace with your Outbound App ID
+                "google-calendar",  # Your Outbound App ID in Descope
                 user_id,
                 None,
                 {"forceRefresh": False}
             )
-            # print("🔑 Full token response:", token_response)
             google_token = token_response["token"]["accessToken"]
         except Exception as e:
             return {"error": f"Failed to get Google token: {str(e)}"}, 500
 
-        # 3. Insert event into Google Calendar
-        event = {
-            "summary": "Wellness Break 🧘",
-            "start": {"dateTime": "2025-09-06T21:00:00+05:30"},
-            "end": {"dateTime": "2025-09-06T21:15:00+05:30"}
-        }
+        # 3. Build Google Calendar Event
+        try:
+            # Parse start_time (e.g., "2025-09-09T12:30")
+            start = parser.isoparse(start_time)
+
+            # Attach IST timezone if none provided
+            if start.tzinfo is None:
+                ist = pytz.timezone("Asia/Kolkata")
+                start = ist.localize(start)
+
+            # Calculate end time
+            end = start + timedelta(minutes=int(duration))
+
+            event = {
+                "summary": title,
+                "start": {"dateTime": start.isoformat()},  # 👈 preserves timezone if present
+                "end": {"dateTime": end.isoformat()},
+            }
+
+            print(event)
+        except Exception as e:
+            return {"error": f"Invalid date format: {str(e)}"}, 400
+
+        # 4. Call Google Calendar API
         headers = {"Authorization": f"Bearer {google_token}"}
         response = requests.post(
             "https://www.googleapis.com/calendar/v3/calendars/primary/events",
             headers=headers,
             json=event
         )
+
+        if response.status_code not in [200, 201]:
+            return {
+                "error": "Failed to insert event in Google Calendar",
+                "details": response.text
+            }, response.status_code
 
         return response.json(), response.status_code
     
@@ -85,7 +113,6 @@ class CalendarEvents(Resource):
             data = request.get_json()
             user_id = data.get("user_id")
             session_jwt = data.get("session_jwt")
-            print("📩 Incoming request:", data)
 
 
             if not session_jwt:
@@ -104,7 +131,7 @@ class CalendarEvents(Resource):
                 return {"error": f"Failed to get Google token: {str(e)}"}, 500
         
 
-            # ✅ Fetch events from Google Calendar API
+            # Fetch events from Google Calendar API
             now = datetime.datetime.utcnow().isoformat() + "Z"
             tomorrow = (datetime.datetime.utcnow() + datetime.timedelta(days=1)).isoformat() + "Z"
 
@@ -154,7 +181,7 @@ def extract_event_info(events):
 def schedule_breaks(free_slots, rules):
     break_duration = datetime.timedelta(minutes=rules["break_duration"])
     max_breaks = rules["max_breaks_per_day"]
-    min_spacing = datetime.timedelta(hours=2)  # ✅ enforce 2-hour gap
+    min_spacing = datetime.timedelta(hours=2)  
 
     today = datetime.date.today()
     local_tz = datetime.datetime.now().astimezone().tzinfo
@@ -303,8 +330,6 @@ def find_free_slots(events, rules, tz_name="Asia/Kolkata"):
         for s, e in free_slots
     ]
 
-    print(f"EXACT FREE SLOTS: ******************** {formatted} **************************")
-
     return schedule_breaks(formatted, rules)
 
 
@@ -324,8 +349,6 @@ def insert_breaks_to_calendar(breaks, user_id, session_jwt):
         if key not in seen:
             seen.add(key)
             unique_breaks.append(br)
-
-    print(f"unique_breaks: {unique_breaks}")
 
     # 1. Validate session
     try:
@@ -359,13 +382,11 @@ def insert_breaks_to_calendar(breaks, user_id, session_jwt):
         for e in existing_events
         if "start" in e and "end" in e
     }
-    print(f"existing_times: {existing_times}")
 
     created_events = []
 
     # 4. Insert each break only if not already present
     for br in unique_breaks:
-        print(br)
         if (br["start_iso"], br["end_iso"]) in existing_times:
             continue  # skip duplicate in Google Calendar
 
@@ -398,7 +419,6 @@ class AutoSchedule(Resource):
             session_jwt = data.get("session_jwt")
 
             formated_events = extract_event_info(events)
-            print(f"FORMATED EVENTS : ************** {formated_events} ******************************")
 
             # ✅ Check if breaks already exist
             if any(e.get("title") == "Wellness Break 🧘" for e in formated_events):
@@ -412,10 +432,8 @@ class AutoSchedule(Resource):
             }
 
             free_slots = find_free_slots(formated_events, RULES)
-            print(f"30 min in 3 interval FREE SLOTS : ************** {free_slots} ******************************")
 
             add_brakes = insert_breaks_to_calendar(free_slots, user_id, session_jwt)
-            print(f"ADD_BRAKES : ************** {add_brakes} ******************************")
 
             return {"free_slots": add_brakes}, 200
 

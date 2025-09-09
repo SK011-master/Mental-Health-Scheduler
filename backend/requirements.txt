@@ -9,3 +9,4 @@ descope
 pytz
 gunicorn
 flask_cors
+dateutil

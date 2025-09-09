@@ -99,7 +99,6 @@
                     <option value="15">15 minutes</option>
                     <option value="20">20 minutes</option>
                     <option value="30">30 minutes</option>
-                    <option value="60">1 hour</option>
                   </select>
                 </div>
               </div>
@@ -283,7 +282,7 @@ const toast = reactive({
 
 const all_events = ref([]);
 const upcomingEvents = ref([]);
-const wellness = ref([]); // ✅ Stores only wellness-related events
+const wellness = ref([]); // Stores only wellness-related events
 
 /**
  * Convert Google Calendar API events into UpcomingBreak[] format
@@ -377,6 +376,23 @@ const scheduleBreak = async () => {
     return;
   }
 
+  // Check if selected start time conflicts with any existing event
+  const selectedStart = new Date(breakForm.startTime);
+
+  const conflict = all_events.value.some(event => {
+    if (!event.start?.dateTime || !event.end?.dateTime) return false;
+    const eventStart = new Date(event.start.dateTime);
+    const eventEnd = new Date(event.end.dateTime);
+
+    return selectedStart >= eventStart && selectedStart < eventEnd;
+  });
+
+  if (conflict) {
+    showToast("error", "Please select a free time slot");
+    return; // Stop here
+  }
+
+  // ✅ Continue scheduling
   isScheduling.value = true;
 
   try {
@@ -384,9 +400,9 @@ const scheduleBreak = async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        user_id: props.userInfo.id,
-        session_jwt: props.userInfo.sessionJwt,
-        title: breakForm.title,
+        user_id: user.value.id,
+        session_jwt: user.value.sessionJwt,
+        title: "Wellness Break 🧘",
         start_time: breakForm.startTime,
         duration: breakForm.duration,
       }),
@@ -397,7 +413,12 @@ const scheduleBreak = async () => {
 
       // Reset form
       breakForm.title = "Wellness Break 🧘";
-      breakForm.startTime = "";
+
+      const now = new Date();
+      now.setHours(now.getHours() + 1);
+      now.setMinutes(0);
+      breakForm.startTime = now.toISOString().slice(0, 16);
+
       breakForm.duration = 15;
 
       // Refresh upcoming breaks
