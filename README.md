@@ -8,6 +8,7 @@ Most Important I have created this app in `IST` `Asia/Kolkata` time standard
 ---
 #### Working Application Links
 - First link : https://enchanting-mousse-3d0d2d.netlify.app
+- Second link : https://fancy-dieffenbachia-63fc43.netlify.app
 
 ##### Note
 - At the time of login google will say `Google hasn’t verified this app` ignore this and go to `Advanced` and click `Go to descope.com (unsafe)`
@@ -108,5 +109,6 @@ The Mental Health Scheduler agent reduces stress and burnout by auto-inserting w
 - Improve auto‑scheduling heuristics with preferences and AI‑driven suggestions
 - Build richer UI for event editing, drag‑and‑drop
 - Add comprehensive tests and CI, plus production observability/metrics
+
 
 
